@@ -71,8 +71,7 @@ func (fe *frontendServer) homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	cart, err := fe.getCart(r.Context(), sessionID(r))
 	if err != nil {
-		renderHTTPError(log, r, w, errors.Wrap(err, "could not retrieve cart"), http.StatusInternalServerError)
-		return
+		log.WithField("error", err).Warn("failed to get retrieve cart")
 	}
 
 	type productView struct {
@@ -164,8 +163,7 @@ func (fe *frontendServer) productHandler(w http.ResponseWriter, r *http.Request)
 
 	cart, err := fe.getCart(r.Context(), sessionID(r))
 	if err != nil {
-		renderHTTPError(log, r, w, errors.Wrap(err, "could not retrieve cart"), http.StatusInternalServerError)
-		return
+		log.WithField("error", err).Warn("failed to get retrieve cart")
 	}
 
 	price, err := fe.convertCurrency(r.Context(), p.GetPriceUsd(), currentCurrency(r))
@@ -229,8 +227,10 @@ func (fe *frontendServer) addToCartHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := fe.insertCart(r.Context(), sessionID(r), p.GetId(), int32(payload.Quantity)); err != nil {
-		renderHTTPError(log, r, w, errors.Wrap(err, "failed to add to cart"), http.StatusInternalServerError)
-		return
+		if err := templates.ExecuteTemplate(w, "cart_error", injectCommonTemplateData(r, map[string]interface{}{})); err != nil {
+			log.Error(err)
+			return
+		}
 	}
 	w.Header().Set("location", "/cart")
 	w.WriteHeader(http.StatusFound)
@@ -258,8 +258,10 @@ func (fe *frontendServer) viewCartHandler(w http.ResponseWriter, r *http.Request
 	}
 	cart, err := fe.getCart(r.Context(), sessionID(r))
 	if err != nil {
-		renderHTTPError(log, r, w, errors.Wrap(err, "could not retrieve cart"), http.StatusInternalServerError)
-		return
+		if err := templates.ExecuteTemplate(w, "cart_error", injectCommonTemplateData(r, map[string]interface{}{})); err != nil {
+			log.Error(err)
+			return
+		}
 	}
 
 	// ignores the error retrieving recommendations since it is not critical
